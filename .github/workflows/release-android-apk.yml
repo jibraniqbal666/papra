@@ -42,7 +42,6 @@ jobs:
 
       - name: 📱 Setup EAS build cache
         uses: actions/cache@v3
-        working-directory: apps/mobile
         with:
           path: ~/.eas-build-local
           key: ${{ runner.os }}-eas-build-local-${{ hashFiles('**/package.json') }}
