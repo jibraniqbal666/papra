@@ -108,7 +108,6 @@ jobs:
 
       - name: 📝 Create GitHub Release
         uses: softprops/action-gh-release@v2
-        working-directory: apps/mobile
         with:
           draft: true
           name: "Release v${{ steps.build-info.outputs.version }}-${{ steps.build-info.outputs.build_number }}"
@@ -118,8 +117,8 @@ jobs:
           #   ./app-prod.apk
           #   ./app-prod.aab
           files: |
-            ./app-prod.apk
-          body_path: changelog.md
+            apps/mobile/app-prod.apk
+          body_path: apps/mobile/changelog.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: 📦 Upload build artifacts to GitHub
@@ -127,7 +126,7 @@ jobs:
         with:
           name: app-builds
           path: |
-            ./app-prod.apk
+            apps/mobile/app-prod.apk
           # path: |
           #   ./app-dev.apk
           #   ./app-prod.apk
