@@ -123,6 +123,7 @@ jobs:
         working-directory: apps/mobile
         if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'prod-apk' || github.event_name == 'pull_request'
         run: |
+          ls -la
           export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
           eas build --platform android --profile production-apk --local --non-interactive --output=./app-prod.apk
         env:
