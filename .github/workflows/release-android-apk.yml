@@ -56,7 +56,6 @@ jobs:
 
       - name: 🏗 Install pnpm
         uses: pnpm/action-setup@v4
-        working-directory: apps/mobile
 
       - name: 📦 Install dependencies
         run: |
