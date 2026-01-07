@@ -36,6 +36,7 @@ jobs:
 
       - name: 📦 Install dependencies
         run: |
+          ls -la
           pnpm install
           pnpm add -g eas-cli@latest
         working-directory: apps/mobile
