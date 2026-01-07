@@ -30,6 +30,7 @@ jobs:
     steps:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
+        working-directory: apps/mobile
 
       - name: 🏗 Install pnpm
         uses: pnpm/action-setup@v4
@@ -37,11 +38,12 @@ jobs:
       - name: 📦 Install dependencies
         run: |
           pnpm install
-          pnpm global add eas-cli@latest
+          pnpm add -g eas-cli@latest
         working-directory: apps/mobile
 
       - name: 📱 Setup EAS build cache
         uses: actions/cache@v3
+        working-directory: apps/mobile
         with:
           path: ~/.eas-build-local
           key: ${{ runner.os }}-eas-build-local-${{ hashFiles('**/package.json') }}
@@ -49,11 +51,13 @@ jobs:
             ${{ runner.os }}-eas-build-local-
 
       - name: 🔄 Verify EAS CLI installation
+        working-directory: apps/mobile
         run: |
           echo "EAS CLI version:"
           eas --version
 
       - name: 📋 Fix package.json main entry
+        working-directory: apps/mobile
         run: |
           # Check if jq is installed, if not install it
           if ! command -v jq &> /dev/null; then
@@ -75,6 +79,7 @@ jobs:
           fi
 
       - name: 📋 Update metro.config.js for SVG support
+        working-directory: apps/mobile
         run: |
           if [ -f ./metro.config.js ]; then
             echo "Creating backup of metro.config.js"
@@ -107,6 +112,7 @@ jobs:
           fi
 
       - name: 📱 Build Development APK
+        working-directory: apps/mobile
         if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'dev' || github.event_name == 'push'
         run: |
           # Build with increased memory limit
@@ -116,6 +122,7 @@ jobs:
           NODE_ENV: development
 
       - name: 📱 Build Production APK
+        working-directory: apps/mobile
         if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'prod-apk' || github.event_name == 'push'
         run: |
           export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
@@ -124,6 +131,7 @@ jobs:
           NODE_ENV: production
 
       - name: 📱 Build Production AAB
+        working-directory: apps/mobile
         if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'prod-aab' || github.event_name == 'push'
         run: |
           export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
@@ -132,6 +140,7 @@ jobs:
           NODE_ENV: production
 
       - name: 🏷️ Generate build information
+        working-directory: apps/mobile
         id: build-info
         run: |
           VERSION=$(node -p "require('./app.json').expo.version")
@@ -147,6 +156,7 @@ jobs:
           fi
 
       - name: 📝 Create GitHub Release
+        working-directory: apps/mobile
         uses: softprops/action-gh-release@v1
         with:
           draft: true
@@ -160,6 +170,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: 📦 Upload build artifacts to GitHub
+        working-directory: apps/mobile
         uses: actions/upload-artifact@v4
         with:
           name: app-builds
