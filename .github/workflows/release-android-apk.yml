@@ -124,7 +124,7 @@ jobs:
           # Build with increased memory limit
           ls -la
           export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
-          eas build --platform android --profile development --local --non-interactive --output=./app-dev.apk
+          eas build --platform android --profile preview --local --non-interactive --output=./app-dev.apk
         env:
           NODE_ENV: development
 
