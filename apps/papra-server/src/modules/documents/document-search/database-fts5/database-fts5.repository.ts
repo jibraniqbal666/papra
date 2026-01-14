@@ -4,6 +4,7 @@ import { injectArguments } from '@corentinth/chisels';
 import { and, eq, getTableColumns, sql } from 'drizzle-orm';
 import { omitUndefined } from '../../../shared/utils';
 import { documentsTable } from '../../documents.table';
+import { createFts5DocumentSearchQuery } from './database-fts5.repository.models';
 import { documentsFtsTable } from './database-fts5.tables';
 
 export type DocumentSearchRepository = ReturnType<typeof createDocumentSearchRepository>;
@@ -18,19 +19,16 @@ export function createDocumentSearchRepository({ db }: { db: Database }) {
 }
 
 async function searchOrganizationDocuments({ organizationId, searchQuery, pageIndex, pageSize, db }: { organizationId: string; searchQuery: string; pageIndex: number; pageSize: number; db: Database }) {
-  // TODO: extract this logic to a tested function
-  // when searchquery is a single word, we append a wildcard to it to make it a prefix search
-  const cleanedSearchQuery = searchQuery.replace(/"/g, '').replace(/\*/g, '').trim();
-  const formattedSearchQuery = cleanedSearchQuery.includes(' ') ? cleanedSearchQuery : `${cleanedSearchQuery}*`;
+  const { query: formattedSearchQuery } = createFts5DocumentSearchQuery({ organizationId, searchQuery });
 
   const documents = await db.select(getTableColumns(documentsTable))
     .from(documentsTable)
     .innerJoin(
       documentsFtsTable,
-      eq(documentsFtsTable.id, documentsTable.id),
+      eq(documentsFtsTable.documentId, documentsTable.id),
     )
     .where(and(
-      eq(documentsTable.organizationId, organizationId),
+      eq(documentsFtsTable.organizationId, organizationId),
       eq(documentsTable.isDeleted, false),
       eq(documentsFtsTable, formattedSearchQuery), // Match and eq works the same for FTS5 virtual tables
     ))
@@ -45,9 +43,9 @@ async function indexDocument({ document, db }: { document: DocumentSearchableDat
   await db
     .insert(documentsFtsTable)
     .values({
-      id: document.id,
+      documentId: document.id,
+      organizationId: document.organizationId,
       name: document.name,
-      originalName: document.originalName,
       content: document.content,
     });
 }
@@ -66,11 +64,11 @@ async function updateDocument({ documentId, document, db }: { documentId: string
   await db
     .update(documentsFtsTable)
     .set(dataToUpdate)
-    .where(eq(documentsFtsTable.id, documentId));
+    .where(eq(documentsFtsTable.documentId, documentId));
 }
 
 async function deleteDocument({ documentId, db }: { documentId: string; db: Database }) {
   await db
     .delete(documentsFtsTable)
-    .where(eq(documentsFtsTable.id, documentId));
+    .where(eq(documentsFtsTable.documentId, documentId));
 }
