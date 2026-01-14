@@ -6,7 +6,10 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "package": "app.papra.android.debug"
+      }
     },
     "preview": {
       "distribution": "internal"

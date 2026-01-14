@@ -9,6 +9,11 @@ export type AuthClient = ReturnType<typeof createAuthClient>;
 export function createAuthClient({ baseUrl}: { baseUrl: string }) {
   return createBetterAuthClient({
     baseURL: baseUrl,
+    fetchOptions: {
+      headers: Platform.OS !== 'web' ? {
+        'origin': baseUrl,
+      } : undefined,
+    },
     plugins: [
       expoClient({
         scheme: String(Constants.expoConfig?.scheme ?? 'papra'),
