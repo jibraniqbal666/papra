@@ -1,6 +1,7 @@
 import type { Expression, Issue, ParsedQuery } from './parser.types';
 import type { Token } from './tokenizer';
 import { ERROR_CODES } from './errors';
+import { simplifyExpression } from './optimization';
 import { tokenize } from './tokenizer';
 
 export function parseSearchQuery(
@@ -8,19 +9,32 @@ export function parseSearchQuery(
     query,
     maxDepth = 10,
     maxTokens = 200,
+    optimize = false,
   }: {
     query: string;
     maxDepth?: number;
     maxTokens?: number;
+    optimize?: boolean;
   },
 ): ParsedQuery {
   const { tokens, issues: tokenizerIssues } = tokenize({ query, maxTokens });
 
   const { expression, issues: parserIssues } = parseExpression({ tokens, maxDepth });
 
+  const issues = [...tokenizerIssues, ...parserIssues];
+
+  if (!optimize) {
+    return {
+      expression,
+      issues,
+    };
+  }
+
+  const { expression: optimizedExpression } = simplifyExpression({ expression });
+
   return {
-    expression,
-    issues: [...tokenizerIssues, ...parserIssues],
+    expression: optimizedExpression,
+    issues,
   };
 }
 
@@ -98,7 +112,6 @@ function parseExpression({ tokens, maxDepth }: { tokens: Token[]; maxDepth: numb
     return undefined;
   }
 
-  // Parse NOT expression (highest precedence)
   function parseUnaryExpression(): Expression | undefined {
     if (peek().type === 'NOT') {
       advance(); // Consume NOT
@@ -125,7 +138,6 @@ function parseExpression({ tokens, maxDepth }: { tokens: Token[]; maxDepth: numb
     return parsePrimaryExpression();
   }
 
-  // Parse AND expression (higher precedence than OR)
   function parseAndExpression(): Expression | undefined {
     const operands: Expression[] = [];
 
@@ -160,7 +172,6 @@ function parseExpression({ tokens, maxDepth }: { tokens: Token[]; maxDepth: numb
     return { type: 'and', operands };
   };
 
-  // Parse OR expression (lowest precedence)
   function parseOrExpression(): Expression | undefined {
     const left = parseAndExpression();
     if (!left) {
@@ -184,7 +195,6 @@ function parseExpression({ tokens, maxDepth }: { tokens: Token[]; maxDepth: numb
     return { type: 'or', operands };
   };
 
-  // Start parsing
   const expression = parseOrExpression();
 
   // Check for unmatched closing parentheses
@@ -196,11 +206,8 @@ function parseExpression({ tokens, maxDepth }: { tokens: Token[]; maxDepth: numb
     advance();
   }
 
-  // Build final result
-  const finalExpression: Expression = expression ?? { type: 'empty' };
-
   return {
-    expression: finalExpression,
+    expression: expression ?? { type: 'empty' },
     issues: parserIssues,
   };
 }
