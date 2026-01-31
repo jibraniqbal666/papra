@@ -328,6 +328,10 @@ export const translations: Partial<TranslationsDictionary> = {
   'documents.list.table.headers.deleted': 'Gelöscht am',
   'documents.list.table.headers.actions': 'Aktionen',
   'documents.list.table.headers.tags': 'Tags',
+  'documents.list.search.placeholder': 'Dokumente durchsuchen...',
+  'documents.list.search.no-results': 'Keine Dokumente für diese Suche gefunden',
+  'documents.list.search.total-count-with-query': '{{ count }} {{ count, =1:Dokument, Dokumente }} entsprechen dieser Suche',
+  'documents.list.search.total-count-no-query': '{{ count }} {{ count, =1:Dokument, Dokumente }} insgesamt',
 
   'documents.tabs.info': 'Info',
   'documents.tabs.content': 'Inhalt',
@@ -657,7 +661,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'layout.theme.dark': 'Dunkler Modus',
   'layout.theme.system': 'Systemmodus',
 
-  'layout.search.placeholder': 'Suchen...',
+  'layout.search.placeholder': 'Schnellsuche',
   'layout.menu.import-document': 'Dokument importieren',
 
   'user-menu.account-settings': 'Kontoeinstellungen',
@@ -673,6 +677,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'command-palette.no-results': 'Keine Ergebnisse gefunden',
   'command-palette.sections.documents': 'Dokumente',
   'command-palette.sections.theme': 'Thema',
+  'command-palette.show-more-results': '{{ count }} weitere Ergebnisse für "{{ query }}" anzeigen',
 
   // API errors
 
@@ -747,6 +752,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'color-picker.lightness': 'Helligkeit',
   'color-picker.select-color': 'Farbe auswählen',
   'color-picker.select-a-color': 'Eine Farbe auswählen',
+  'color-picker.random-color': 'Zufällige Farbe',
 
   // Subscriptions
 

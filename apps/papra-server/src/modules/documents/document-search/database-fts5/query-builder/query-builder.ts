@@ -2,10 +2,13 @@ import type { AndExpression, Expression, FilterExpression, NotExpression, OrExpr
 import type { Database } from '../../../../app/database/database.types';
 import type { QueryResult } from './query-builder.types';
 import { and, eq, inArray, not, or, sql } from 'drizzle-orm';
+import { isValidDate } from '../../../../shared/date';
+import { tagIdRegex } from '../../../../tags/tags.constants';
+import { normalizeTagName } from '../../../../tags/tags.repository.models';
 import { documentsTagsTable, tagsTable } from '../../../../tags/tags.table';
 import { documentsTable } from '../../../documents.table';
 import { documentsFtsTable } from '../database-fts5.tables';
-import { createUnsupportedOperatorIssue, formatFts5QueryValue } from './query-builder.models';
+import { createUnsupportedOperatorIssue, formatFts5QueryValue, getSqlOperator } from './query-builder.models';
 
 export function handleEmptyExpression(): QueryResult {
   return {
@@ -132,6 +135,10 @@ export function handleNotExpression({ expression, organizationId, db }: { expres
 export function handleTagFilter({ expression, organizationId, db }: { expression: FilterExpression; organizationId: string; db: Database }): QueryResult {
   const { value } = expression;
 
+  const query = tagIdRegex.test(value)
+    ? eq(tagsTable.id, value)
+    : eq(tagsTable.normalizedName, normalizeTagName({ name: value }));
+
   return {
     sqlQuery: inArray(
       documentsTable.id,
@@ -141,12 +148,56 @@ export function handleTagFilter({ expression, organizationId, db }: { expression
         .where(and(
           // Ensure tag belongs to the same organization + helps performance as there is an index on (organizationId + name)
           eq(tagsTable.organizationId, organizationId),
-          or(
-            eq(tagsTable.name, value),
-            eq(tagsTable.id, value),
-          ),
+          query,
         )),
     ),
+    issues: [],
+  };
+}
+
+export function handleHasTagsFilter({ expression, organizationId, db }: { expression: FilterExpression; organizationId: string; db: Database }): QueryResult {
+  const { operator, field } = expression;
+
+  if (operator !== '=') {
+    return {
+      sqlQuery: sql`0`,
+      issues: [createUnsupportedOperatorIssue({ operator, field })],
+    };
+  }
+
+  return {
+    sqlQuery: inArray(
+      documentsTable.id,
+      db.selectDistinct({ documentId: documentsTagsTable.documentId })
+        .from(documentsTagsTable)
+        .innerJoin(tagsTable, eq(documentsTagsTable.tagId, tagsTable.id))
+        .where(eq(tagsTable.organizationId, organizationId)),
+    ),
+    issues: [],
+  };
+}
+
+export function handleCreatedFilter({ expression }: { expression: FilterExpression }): QueryResult {
+  const { value, operator } = expression;
+
+  const dateValue = new Date(value);
+
+  if (!isValidDate(dateValue)) {
+    return {
+      sqlQuery: sql`0`,
+      issues: [
+        {
+          message: `Invalid date format "${value}" for created filter`,
+          code: 'INVALID_DATE_FORMAT',
+        },
+      ],
+    };
+  }
+
+  const sqlOperator = getSqlOperator({ operator });
+
+  return {
+    sqlQuery: sqlOperator(documentsTable.createdAt, dateValue),
     issues: [],
   };
 }
@@ -158,6 +209,18 @@ export function handleUnsupportedExpression(): QueryResult {
       {
         message: 'Unsupported expression type',
         code: 'UNSUPPORTED_EXPRESSION_TYPE',
+      },
+    ],
+  };
+}
+
+export function handleInvalidHasValue({ expression }: { expression: FilterExpression }): QueryResult {
+  return {
+    sqlQuery: sql`0`,
+    issues: [
+      {
+        message: `Unsupported value "${expression.value}" for has filter`,
+        code: 'UNSUPPORTED_HAS_VALUE',
       },
     ],
   };
@@ -176,6 +239,12 @@ export function buildQueryFromExpression({ expression, organizationId, db }: { e
         case 'tag': return handleTagFilter({ expression, organizationId, db });
         case 'name': return handleNameFilter({ expression, organizationId, db });
         case 'content': return handleContentFilter({ expression, organizationId, db });
+        case 'created': return handleCreatedFilter({ expression });
+        case 'has':
+          switch (expression.value) {
+            case 'tags': return handleHasTagsFilter({ expression, organizationId, db });
+            default: return handleInvalidHasValue({ expression });
+          }
         default: return handleUnsupportedExpression();
       }
     default: return handleUnsupportedExpression();

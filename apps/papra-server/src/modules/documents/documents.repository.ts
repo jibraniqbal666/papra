@@ -1,11 +1,11 @@
 import type { Database } from '../app/database/database.types';
 import type { DbInsertableDocument } from './documents.types';
 import { injectArguments, safely } from '@corentinth/chisels';
-import { subDays } from 'date-fns';
 import { and, count, desc, eq, getTableColumns, lt, sql } from 'drizzle-orm';
 import { omit } from 'lodash-es';
 import { createIterator } from '../app/database/database.usecases';
 import { createOrganizationNotFoundError } from '../organizations/organizations.errors';
+import { subDays } from '../shared/date';
 import { isUniqueConstraintError } from '../shared/db/constraints.models';
 import { withPagination } from '../shared/db/pagination';
 import { createError } from '../shared/errors/errors';
@@ -82,7 +82,7 @@ async function saveOrganizationDocument({ db, ...documentToInsert }: { db: Datab
   return { document };
 }
 
-async function getOrganizationDocumentsCount({ organizationId, filters, db }: { organizationId: string; filters?: { tags?: string[] }; db: Database }) {
+async function getOrganizationDocumentsCount({ organizationId, db }: { organizationId: string; db: Database }) {
   const [record] = await db
     .select({
       documentsCount: count(documentsTable.id),
@@ -93,7 +93,6 @@ async function getOrganizationDocumentsCount({ organizationId, filters, db }: { 
       and(
         eq(documentsTable.organizationId, organizationId),
         eq(documentsTable.isDeleted, false),
-        ...(filters?.tags ? filters.tags.map(tag => eq(documentsTagsTable.tagId, tag)) : []),
       ),
     );
 
@@ -132,13 +131,11 @@ async function getOrganizationDocuments({
   organizationId,
   pageIndex,
   pageSize,
-  filters,
   db,
 }: {
   organizationId: string;
   pageIndex: number;
   pageSize: number;
-  filters?: { tags?: string[] };
   db: Database;
 }) {
   const query = db
@@ -153,7 +150,6 @@ async function getOrganizationDocuments({
       and(
         eq(documentsTable.organizationId, organizationId),
         eq(documentsTable.isDeleted, false),
-        ...(filters?.tags ? filters.tags.map(tag => eq(documentsTagsTable.tagId, tag)) : []),
       ),
     );
 

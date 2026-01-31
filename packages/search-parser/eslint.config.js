@@ -8,9 +8,11 @@ export default antfu({
   ignores: [
     'example.ts',
     'README.md',
+    'demo/**/*',
   ],
 
   rules: {
+    'pnpm/json-enforce-catalog': 'off',
     // To allow export on top of files
     'ts/no-use-before-define': ['error', { allowNamedExports: true, functions: false }],
     'curly': ['error', 'all'],

@@ -1,76 +1,20 @@
-import type { Component, ComponentProps, JSX, ParentComponent } from 'solid-js';
-import { A, useNavigate, useParams } from '@solidjs/router';
+import type { Component, ParentComponent } from 'solid-js';
+import { A, useParams } from '@solidjs/router';
 import { For, Show, Suspense } from 'solid-js';
 
-import { signOut } from '@/modules/auth/auth.services';
 import { useCommandPalette } from '@/modules/command-palette/command-palette.provider';
 
 import { useDocumentUpload } from '@/modules/documents/components/document-import-status.component';
 import { GlobalDropArea } from '@/modules/documents/components/global-drop-area.component';
 import { useI18n } from '@/modules/i18n/i18n.provider';
-import { usePendingInvitationsCount } from '@/modules/invitations/composables/usePendingInvitationsCount';
 import { AboutDialog, useAboutDialog } from '@/modules/shared/components/about-dialog';
-import { cn } from '@/modules/shared/style/cn';
 import { UsageWarningCard } from '@/modules/subscriptions/components/usage-warning-card';
 import { useThemeStore } from '@/modules/theme/theme.store';
 import { Button } from '@/modules/ui/components/button';
+import { UserSettingsDropdown } from '@/modules/users/components/user-settings.component';
 import { useCurrentUser } from '@/modules/users/composables/useCurrentUser';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '../components/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '../components/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '../components/sheet';
-
-type MenuItem = {
-  label: string;
-  icon: string;
-  href?: string;
-  onClick?: () => void;
-  badge?: JSX.Element;
-};
-
-const MenuItemButton: Component<MenuItem> = (props) => {
-  return (
-    <Button class="justify-start items-center gap-2 dark:text-muted-foreground truncate" variant="ghost" {...(props.onClick ? { onClick: props.onClick } : { as: A, href: props.href, activeClass: 'bg-accent/50! text-accent-foreground! truncate', end: true } as ComponentProps<typeof Button>)}>
-      <div class={cn(props.icon, 'size-5 text-muted-foreground opacity-50')} />
-      <div>{props.label}</div>
-      {props.badge && <div class="ml-auto">{props.badge}</div>}
-    </Button>
-  );
-};
-
-export const SideNav: Component<{
-  mainMenu?: MenuItem[];
-  footerMenu?: MenuItem[];
-  header?: Component;
-  footer?: Component;
-  preFooter?: Component;
-}> = (props) => {
-  return (
-    <div class="flex h-full">
-      {(props.header || props.mainMenu || props.footerMenu || props.footer || props.preFooter) && (
-        <div class="h-full flex flex-col pb-6 flex-1 min-w-0">
-          {props.header && <props.header />}
-
-          {props.mainMenu && (
-            <nav class="flex flex-col gap-0.5 mt-4 px-4">
-              <For each={props.mainMenu}>{menuItem => <MenuItemButton {...menuItem} />}</For>
-            </nav>
-          )}
-
-          <div class="flex-1" />
-
-          {props.preFooter && <props.preFooter />}
-
-          {props.footerMenu && (
-            <nav class="flex flex-col gap-0.5 px-4">
-              <For each={props.footerMenu}>{menuItem => <MenuItemButton {...menuItem} />}</For>
-            </nav>
-          )}
-
-          {props.footer && <props.footer />}
-        </div>
-      )}
-    </div>
-  );
-};
 
 export const ThemeSwitcher: Component = () => {
   const themeStore = useThemeStore();
@@ -130,8 +74,6 @@ export const SidenavLayout: ParentComponent<{
   const themeStore = useThemeStore();
   const params = useParams();
   const { openCommandPalette } = useCommandPalette();
-  const navigate = useNavigate();
-  const { getPendingInvitationsCount } = usePendingInvitationsCount();
   const { t } = useI18n();
   const { hasPermission } = useCurrentUser();
   const aboutDialog = useAboutDialog();
@@ -197,68 +139,7 @@ export const SidenavLayout: ParentComponent<{
               </Button>
             </Show>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger as={Button} class="relative text-base hidden sm:flex" variant="outline" aria-label="User menu" size="icon">
-                <div class="i-tabler-user size-4" />
-                <Show when={getPendingInvitationsCount() > 0}>
-                  <div class="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-xl text-xs px-1.5 py-0.8 font-bold leading-none">
-                    {getPendingInvitationsCount() }
-                  </div>
-                </Show>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent class="min-w-48">
-                <DropdownMenuItem class="flex items-center gap-2 cursor-pointer" as={A} href="/settings">
-                  <div class="i-tabler-settings size-4 text-muted-foreground" />
-                  {t('user-menu.account-settings')}
-                </DropdownMenuItem>
-
-                <DropdownMenuItem class="flex items-center gap-2 cursor-pointer" as={A} href="/api-keys">
-                  <div class="i-tabler-key size-4 text-muted-foreground" />
-                  {t('user-menu.api-keys')}
-                </DropdownMenuItem>
-
-                <DropdownMenuItem class="flex items-center gap-2 cursor-pointer" as={A} href="/invitations">
-                  <div class="i-tabler-mail-plus size-4 text-muted-foreground" />
-                  {t('user-menu.invitations')}
-                  <Show when={getPendingInvitationsCount() > 0}>
-                    <div class="ml-auto bg-primary text-primary-foreground rounded-xl text-xs px-1.5 py-0.8 font-bold leading-none">
-                      {getPendingInvitationsCount() }
-                    </div>
-                  </Show>
-                </DropdownMenuItem>
-
-                <DropdownMenuSub>
-
-                  <DropdownMenuSubTrigger class="flex items-center gap-2 cursor-pointer">
-                    <div class="i-tabler-language size-4 text-muted-foreground" />
-                    {t('user-menu.language')}
-                  </DropdownMenuSubTrigger>
-
-                  <DropdownMenuSubContent class="min-w-48">
-                    <LanguageSwitcher />
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-
-                <DropdownMenuItem
-                  onClick={() => aboutDialog.open()}
-                  class="flex items-center gap-2 cursor-pointer"
-                >
-                  <div class="i-tabler-info-circle size-4 text-muted-foreground" />
-                  {t('user-menu.about')}
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={async () => {
-                    await signOut();
-                    navigate('/login');
-                  }}
-                  class="flex items-center gap-2 cursor-pointer"
-                >
-                  <div class="i-tabler-logout size-4 text-muted-foreground" />
-                  {t('user-menu.logout')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <UserSettingsDropdown class="hidden sm:flex" />
 
           </div>
         </div>

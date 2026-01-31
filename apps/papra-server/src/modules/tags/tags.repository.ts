@@ -1,12 +1,12 @@
 import type { Database } from '../app/database/database.types';
-import type { DbInsertableTag } from './tags.types';
 import { injectArguments, safely } from '@corentinth/chisels';
-import { and, eq, getTableColumns, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { get } from 'lodash-es';
 import { documentsTable } from '../documents/documents.table';
 import { isUniqueConstraintError } from '../shared/db/constraints.models';
-import { omitUndefined } from '../shared/utils';
+import { isDefined, omitUndefined } from '../shared/utils';
 import { createDocumentAlreadyHasTagError, createTagAlreadyExistsError } from './tags.errors';
+import { normalizeTagName } from './tags.repository.models';
 import { documentsTagsTable, tagsTable } from './tags.table';
 
 export type TagsRepository = ReturnType<typeof createTagsRepository>;
@@ -38,7 +38,8 @@ async function getOrganizationTags({ organizationId, db }: { organizationId: str
     .leftJoin(documentsTagsTable, eq(tagsTable.id, documentsTagsTable.tagId))
     .leftJoin(documentsTable, eq(documentsTagsTable.documentId, documentsTable.id))
     .where(eq(tagsTable.organizationId, organizationId))
-    .groupBy(tagsTable.id);
+    .groupBy(tagsTable.id)
+    .orderBy(desc(tagsTable.createdAt));
 
   return { tags };
 }
@@ -57,8 +58,16 @@ async function getTagById({ tagId, organizationId, db }: { tagId: string; organi
   return { tag };
 }
 
-async function createTag({ tag, db }: { tag: DbInsertableTag; db: Database }) {
-  const [result, error] = await safely(db.insert(tagsTable).values(tag).returning());
+async function createTag({ tag, db }: { tag: { name: string; description?: string | null; color: string; organizationId: string }; db: Database }) {
+  const [result, error] = await safely(
+    db
+      .insert(tagsTable)
+      .values({
+        ...tag,
+        normalizedName: normalizeTagName({ name: tag.name }),
+      })
+      .returning(),
+  );
 
   if (isUniqueConstraintError({ error })) {
     throw createTagAlreadyExistsError();
@@ -78,19 +87,32 @@ async function deleteTag({ tagId, db }: { tagId: string; db: Database }) {
 }
 
 async function updateTag({ tagId, name, description, color, db }: { tagId: string; name?: string; description?: string; color?: string; db: Database }) {
-  const [tag] = await db
-    .update(tagsTable)
-    .set(
-      omitUndefined({
-        name,
-        description,
-        color,
-      }),
-    )
-    .where(
-      eq(tagsTable.id, tagId),
-    )
-    .returning();
+  const [result, error] = await safely(
+    db
+      .update(tagsTable)
+      .set(
+        omitUndefined({
+          name,
+          description,
+          color,
+          normalizedName: isDefined(name) ? normalizeTagName({ name }) : undefined,
+        }),
+      )
+      .where(
+        eq(tagsTable.id, tagId),
+      )
+      .returning(),
+  );
+
+  if (isUniqueConstraintError({ error })) {
+    throw createTagAlreadyExistsError();
+  }
+
+  if (error) {
+    throw error;
+  }
+
+  const [tag] = result;
 
   return { tag };
 }

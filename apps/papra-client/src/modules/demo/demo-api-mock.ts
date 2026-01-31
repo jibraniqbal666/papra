@@ -1,10 +1,14 @@
 import type { ApiKey } from '../api-keys/api-keys.types';
 import type { Document } from '../documents/documents.types';
 import type { Webhook } from '../webhooks/webhooks.types';
+import type {
+  DocumentFile,
+} from './demo.storage';
 import { FetchError } from 'ofetch';
 import { createRouter } from 'radix3';
 import { get } from '../shared/utils/get';
 import { defineHandler } from './demo-api-mock.models';
+import { createId, randomString } from './demo.models';
 import {
   apiKeyStorage,
   documentFileStorage,
@@ -16,16 +20,8 @@ import {
   webhooksStorage,
 } from './demo.storage';
 import { findMany, getValues } from './demo.storage.models';
-
-const corpus = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-
-function randomString({ length = 10 }: { length?: number } = {}) {
-  return Array.from({ length }, () => corpus[Math.floor(Math.random() * corpus.length)]).join('');
-}
-
-function createId({ prefix }: { prefix: string }) {
-  return `${prefix}_${randomString({ length: 24 })}`;
-}
+import { searchDemoDocuments } from './search/demo.search.services';
+import { demoUser } from './seed/users.fixtures';
 
 function assert(condition: unknown, { message = 'Error', status }: { message?: string; status?: number } = {}): asserts condition {
   if (!condition) {
@@ -46,18 +42,27 @@ function fromBase64(base64: string) {
   return fetch(base64).then(res => res.blob());
 }
 
-async function serializeFile(file: File) {
+async function serializeFile(file: File): Promise<DocumentFile> {
   return {
     name: file.name,
     size: file.size,
     type: file.type,
     // base64
-    content: await toBase64(file),
+    base64Content: await toBase64(file),
   };
 }
 
-async function deserializeFile({ name, type, content }: Awaited<ReturnType<typeof serializeFile>>) {
-  return new File([await fromBase64(content)], name, { type });
+async function deserializeFile(storageInfo: DocumentFile): Promise<File> {
+  if ('path' in storageInfo) {
+    const { path, name } = storageInfo;
+    const response = await fetch(path);
+    const blob = await response.blob();
+    return new File([blob], name);
+  }
+
+  const { name, type, base64Content } = storageInfo;
+
+  return new File([await fromBase64(base64Content)], name, { type });
 }
 
 const inMemoryApiMock: Record<string, { handler: any }> = {
@@ -81,12 +86,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
     path: '/api/users/me',
     method: 'GET',
     handler: () => ({
-      user: {
-        id: 'usr_1',
-        email: 'jane.doe@papra.app',
-        name: 'Jane Doe',
-        permissions: [],
-      },
+      user: demoUser,
     }),
   }),
 
@@ -119,7 +119,9 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
       } = query ?? {};
 
       return {
-        documents: filteredDocuments.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
+        documents: filteredDocuments
+          .toSorted((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
         documentsCount: filteredDocuments.length,
       };
     },
@@ -200,22 +202,32 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
       const organization = await organizationStorage.getItem(organizationId);
       assert(organization, { status: 403 });
 
-      const documents = await findMany(documentStorage, document => document?.organizationId === organizationId);
+      const searchQuery = rawSearchQuery.trim();
+      const [organizationDocuments, allTags, tagDocuments] = await Promise.all([
+        findMany(documentStorage, document => document?.organizationId === organizationId && !document?.deletedAt),
+        getValues(tagStorage),
+        getValues(tagDocumentStorage),
+      ]);
 
-      const searchQuery = rawSearchQuery.trim().toLowerCase();
+      const documentsWithTags = organizationDocuments.map((document) => {
+        const documentTagDocuments = tagDocuments.filter(tagDocument => tagDocument?.documentId === document?.id);
+        const tags = allTags.filter(tag => documentTagDocuments.some(tagDocument => tagDocument?.tagId === tag?.id));
 
-      const matchQuery = (document: Document) =>
-        !document?.deletedAt
-        && [document?.name, document?.content].filter(Boolean).some(content => content.toLowerCase().includes(searchQuery));
+        return {
+          ...document,
+          tags,
+        };
+      });
 
-      const filteredDocuments = documents.filter(matchQuery);
+      const filteredDocuments = searchDemoDocuments({ query: searchQuery, documents: documentsWithTags as Document[] });
+
+      const paginatedDocuments = filteredDocuments
+        .toSorted((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
 
       return {
-        searchResults: {
-          documents: filteredDocuments
-            .slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)
-            .map(({ id, name }) => ({ id, name })),
-        },
+        documents: paginatedDocuments,
+        totalCount: filteredDocuments.length,
       };
     },
   }),
@@ -341,10 +353,20 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
 
       assert(organization, { status: 403 });
 
+      const name = get(body, ['name']) as string;
+      const existingTagsWithSameName = await findMany(tagStorage, tag => tag.organizationId === organizationId && tag.name.toLowerCase() === name.toLowerCase());
+
+      if (existingTagsWithSameName.length > 0) {
+        throw Object.assign(new FetchError('Tag already exists'), {
+          status: 400,
+          data: { error: { code: 'tags.already_exists' } },
+        });
+      }
+
       const tag = {
         id: createId({ prefix: 'tag' }),
         organizationId,
-        name: get(body, ['name']) as string,
+        name,
         color: get(body, ['color']) as string,
         description: (get(body, ['description']) ?? null) as string | null,
         createdAt: new Date(),
@@ -368,6 +390,24 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
       const tag = await tagStorage.getItem(tagId);
 
       assert(tag, { status: 404 });
+
+      const newName = get(body, ['name']) as string | undefined;
+      if (newName) {
+        const existingTagsWithSameName = await findMany(
+          tagStorage,
+          t =>
+            t.organizationId === organizationId
+            && t.id !== tagId
+            && t.name.toLowerCase() === newName.toLowerCase(),
+        );
+
+        if (existingTagsWithSameName.length > 0) {
+          throw Object.assign(new FetchError('Tag already exists'), {
+            status: 400,
+            data: { error: { code: 'tags.already_exists' } },
+          });
+        }
+      }
 
       await tagStorage.setItem(tagId, Object.assign(tag, body, { updatedAt: new Date() }));
 
@@ -584,11 +624,7 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
       return {
         members: [{
           id: 'mem_1',
-          user: {
-            id: 'usr_1',
-            email: 'jane.doe@papra.app',
-            name: 'Jane Doe',
-          },
+          user: demoUser,
           role: 'owner',
           organizationId,
         }],
@@ -762,6 +798,38 @@ const inMemoryApiMock: Record<string, { handler: any }> = {
       await documentStorage.setItem(`${organizationId}:${documentId}`, newDocument);
 
       return { document: newDocument };
+    },
+  }),
+
+  ...defineHandler({
+    path: '/api/organizations/:organizationId/documents/:documentId/activity',
+    method: 'GET',
+    handler: async ({ params: { organizationId, documentId }, query }) => {
+      const key = `${organizationId}:${documentId}`;
+      const document = await documentStorage.getItem(key);
+
+      assert(document, { status: 404 });
+
+      const {
+        pageIndex = 0,
+      } = query ?? {};
+
+      // Return mock activity for demo - just a created event
+      const activities = pageIndex === 0
+        ? [{
+            id: 'activity_1',
+            documentId,
+            event: 'created',
+            eventData: {},
+            createdAt: document.createdAt,
+            user: {
+              id: 'usr_1',
+              name: 'Sherlock Holmes',
+            },
+          }]
+        : [];
+
+      return { activities };
     },
   }),
 

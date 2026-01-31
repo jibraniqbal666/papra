@@ -328,6 +328,10 @@ export const translations: Partial<TranslationsDictionary> = {
   'documents.list.table.headers.deleted': 'Supprimé le',
   'documents.list.table.headers.actions': 'Actions',
   'documents.list.table.headers.tags': 'Étiquettes',
+  'documents.list.search.placeholder': 'Rechercher des documents...',
+  'documents.list.search.no-results': 'Aucun document ne correspond à cette recherche',
+  'documents.list.search.total-count-with-query': '{{ count }} {{ count, =1:document, documents }} correspondant à cette recherche',
+  'documents.list.search.total-count-no-query': '{{ count }} {{ count, =1:document, documents }} au total',
 
   'documents.tabs.info': 'Info',
   'documents.tabs.content': 'Contenu',
@@ -657,7 +661,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'layout.theme.dark': 'Mode sombre',
   'layout.theme.system': 'Mode système',
 
-  'layout.search.placeholder': 'Rechercher...',
+  'layout.search.placeholder': 'Recherche rapide',
   'layout.menu.import-document': 'Importer un document',
 
   'user-menu.account-settings': 'Paramètres du compte',
@@ -673,6 +677,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'command-palette.no-results': 'Aucun résultat trouvé',
   'command-palette.sections.documents': 'Documents',
   'command-palette.sections.theme': 'Thème',
+  'command-palette.show-more-results': 'Afficher {{ count }} résultats supplémentaires pour "{{ query }}"',
 
   // API errors
 
@@ -747,6 +752,7 @@ export const translations: Partial<TranslationsDictionary> = {
   'color-picker.lightness': 'Luminosité',
   'color-picker.select-color': 'Sélectionner la couleur',
   'color-picker.select-a-color': 'Sélectionner une couleur',
+  'color-picker.random-color': 'Couleur aléatoire',
 
   // Subscriptions
 

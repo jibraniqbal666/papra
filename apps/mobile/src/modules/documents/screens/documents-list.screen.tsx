@@ -1,7 +1,9 @@
 import type { Document } from '../documents.types';
 import type { CoerceDates } from '@/modules/api/api.models';
 import type { ThemeColors } from '@/modules/ui/theme.constants';
+import { formatBytes } from '@corentinth/chisels';
 import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApiClient } from '@/modules/api/providers/api.provider';
-import { DocumentActionSheet } from '@/modules/documents-actions/components/document-action-sheet';
+import { DocumentActionSheet } from '@/modules/documents/components/document-action-sheet';
 import { OrganizationPickerButton } from '@/modules/organizations/components/organization-picker-button';
 import { OrganizationPickerDrawer } from '@/modules/organizations/components/organization-picker-drawer';
 import { useOrganizations } from '@/modules/organizations/organizations.provider';
@@ -57,16 +59,6 @@ export function DocumentsListScreen() {
     }).format(date);
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) {
-      return `${bytes} B`;
-    }
-    if (bytes < 1024 * 1024) {
-      return `${(bytes / 1024).toFixed(1)} KB`;
-    }
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
   const onRefresh = async () => {
     await documentsQuery.refetch();
     if (currentOrganizationId != null) {
@@ -107,17 +99,27 @@ export function DocumentsListScreen() {
               data={documentsQuery.data?.documents ?? []}
               keyExtractor={item => item.id}
               renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => setOnDocumentActionSheet(item)}>
+                <TouchableOpacity
+                  onPress={() => {
+                    router.push({
+                      pathname: '/(app)/document/view',
+                      params: {
+                        documentId: item.id,
+                        organizationId: item.organizationId,
+                      },
+                    });
+                  }}
+                >
                   <View style={styles.documentCard}>
                     <View style={{ backgroundColor: themeColors.muted, padding: 10, borderRadius: 6, marginRight: 12 }}>
                       <Icon name="file-text" size={24} color={themeColors.primary} />
                     </View>
-                    <View>
-                      <Text style={styles.documentTitle} numberOfLines={2}>
+                    <View style={styles.documentContent}>
+                      <Text style={styles.documentTitle} numberOfLines={1} ellipsizeMode="tail">
                         {item.name}
                       </Text>
                       <View style={styles.documentMeta}>
-                        <Text style={styles.metaText}>{formatFileSize(item.originalSize)}</Text>
+                        <Text style={styles.metaText}>{formatBytes({ bytes: item.originalSize })}</Text>
                         <Text style={styles.metaSplitter}>-</Text>
                         <Text style={styles.metaText}>{formatDate(item.createdAt)}</Text>
                         {item.localUri !== undefined && (
@@ -144,6 +146,16 @@ export function DocumentsListScreen() {
                         )}
                       </View>
                     </View>
+                    <TouchableOpacity
+                      style={styles.moreButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setOnDocumentActionSheet(item);
+                      }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Icon name="more-vertical" size={20} color={themeColors.mutedForeground} />
+                    </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
               )}
@@ -222,12 +234,17 @@ function createStyles({ themeColors }: { themeColors: ThemeColors }) {
       flexDirection: 'row',
       alignItems: 'center',
     },
-    documentTitle: {
+    documentContent: {
       flex: 1,
+      marginRight: 8,
+    },
+    documentTitle: {
       fontSize: 16,
       fontWeight: '600',
       color: themeColors.foreground,
-      marginRight: 12,
+    },
+    moreButton: {
+      padding: 8,
     },
     documentMeta: {
       flexDirection: 'row',

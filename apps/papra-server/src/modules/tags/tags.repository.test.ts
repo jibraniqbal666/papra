@@ -81,7 +81,7 @@ describe('tags repository', () => {
         documents: [
           { id: 'document-1', organizationId: 'organization-1', createdBy: 'user-1', name: 'Document 1', originalName: 'document-1.pdf', content: 'lorem ipsum', originalStorageKey: '', mimeType: 'application/pdf', originalSha256Hash: 'hash' },
         ],
-        tags: [{ id: 'tag-1', organizationId: 'organization-1', name: 'Tag 1', color: '#aa0000' }],
+        tags: [{ id: 'tag-1', organizationId: 'organization-1', name: 'Tag 1', normalizedName: 'tag 1', color: '#aa0000' }],
       });
 
       const tagsRepository = createTagsRepository({ db });
@@ -98,7 +98,7 @@ describe('tags repository', () => {
   });
 
   describe('getOrganizationTags', () => {
-    test('retrieves all tags for an organization along with the number of non-deleted documents associated with each tag', async () => {
+    test('retrieves all tags for an organization along with the number of non-deleted documents associated with each tag ordered by creation date descending', async () => {
       const { db } = await createInMemoryDatabase({
         users: [{ id: 'user-1', email: 'user-1@example.com' }],
         organizations: [{ id: 'organization-1', name: 'Organization 1' }],
@@ -108,9 +108,9 @@ describe('tags repository', () => {
           { id: 'document-2', organizationId: 'organization-1', createdBy: 'user-1', name: 'Document 2', originalName: 'document-2.pdf', content: 'lorem ipsum', originalStorageKey: '', mimeType: 'application/pdf', originalSha256Hash: 'hash-2', isDeleted: true },
         ],
         tags: [
-          { id: 'tag-1', organizationId: 'organization-1', name: 'Tag 1', color: '#aa0000', createdAt: new Date('2021-01-01'), updatedAt: new Date('2021-01-01') },
-          { id: 'tag-2', organizationId: 'organization-1', name: 'Tag 2', color: '#00aa00', createdAt: new Date('2021-01-02'), updatedAt: new Date('2021-01-02') },
-          { id: 'tag-3', organizationId: 'organization-1', name: 'Tag 3', color: '#0000aa', createdAt: new Date('2021-01-03'), updatedAt: new Date('2021-01-03') },
+          { id: 'tag-1', organizationId: 'organization-1', name: 'Tag 1', normalizedName: 'tag 1', color: '#aa0000', createdAt: new Date('2021-01-01'), updatedAt: new Date('2021-01-01') },
+          { id: 'tag-2', organizationId: 'organization-1', name: 'Tag 2', normalizedName: 'tag 2', color: '#00aa00', createdAt: new Date('2021-01-02'), updatedAt: new Date('2021-01-02') },
+          { id: 'tag-3', organizationId: 'organization-1', name: 'Tag 3', normalizedName: 'tag 3', color: '#0000aa', createdAt: new Date('2021-01-03'), updatedAt: new Date('2021-01-03') },
         ],
         documentsTags: [
           { documentId: 'document-1', tagId: 'tag-1' },
@@ -124,20 +124,23 @@ describe('tags repository', () => {
       const { tags } = await tagsRepository.getOrganizationTags({ organizationId: 'organization-1' });
 
       expect(tags).to.eql([
+
         {
-          id: 'tag-1',
+          id: 'tag-3',
           organizationId: 'organization-1',
-          name: 'Tag 1',
+          name: 'Tag 3',
+          normalizedName: 'tag 3',
           description: null,
-          color: '#aa0000',
-          documentsCount: 1,
-          createdAt: new Date('2021-01-01'),
-          updatedAt: new Date('2021-01-01'),
+          color: '#0000aa',
+          documentsCount: 0,
+          createdAt: new Date('2021-01-03'),
+          updatedAt: new Date('2021-01-03'),
         },
         {
           id: 'tag-2',
           organizationId: 'organization-1',
           name: 'Tag 2',
+          normalizedName: 'tag 2',
           description: null,
           color: '#00aa00',
           documentsCount: 1,
@@ -145,14 +148,15 @@ describe('tags repository', () => {
           updatedAt: new Date('2021-01-02'),
         },
         {
-          id: 'tag-3',
+          id: 'tag-1',
           organizationId: 'organization-1',
-          name: 'Tag 3',
+          name: 'Tag 1',
+          normalizedName: 'tag 1',
           description: null,
-          color: '#0000aa',
-          documentsCount: 0,
-          createdAt: new Date('2021-01-03'),
-          updatedAt: new Date('2021-01-03'),
+          color: '#aa0000',
+          documentsCount: 1,
+          createdAt: new Date('2021-01-01'),
+          updatedAt: new Date('2021-01-01'),
         },
       ]);
     });
@@ -165,7 +169,7 @@ describe('tags repository', () => {
         documents: [
           { id: 'document-1', organizationId: 'organization-1', createdBy: 'user-1', name: 'Document 1', originalName: 'document-1.pdf', content: 'lorem ipsum', originalStorageKey: '', mimeType: 'application/pdf', originalSha256Hash: 'hash-1', isDeleted: true },
         ],
-        tags: [{ id: 'tag-1', organizationId: 'organization-1', name: 'Tag 1', color: '#aa0000' }],
+        tags: [{ id: 'tag-1', organizationId: 'organization-1', name: 'Tag 1', normalizedName: 'tag 1', color: '#aa0000' }],
         documentsTags: [{ documentId: 'document-1', tagId: 'tag-1' }],
       });
 
